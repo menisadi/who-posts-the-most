@@ -2,8 +2,6 @@
 
 Track and compare how active different Telegram channels are — and see who posts the most 📈
 
-![screenshot](./image.png)
-
 ## 🚀 What It Does
 
 Given a list of Telegram channels, `chatter-chase` checks how many messages each one published over a given time period and calculates the average messages per day. It outputs a clean, color-coded leaderboard in your terminal.
