@@ -104,3 +104,4 @@ Analyzing message activity over the past 1 week(s)...
 
 ## 📜 License
 
+[MIT License](./LICENSE)
