@@ -3,6 +3,11 @@ import argparse
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 from telethon.sync import TelegramClient
+from telethon.errors import (
+    UsernameInvalidError,
+    ChannelPrivateError,
+    FloodWaitError,
+)
 from rich.console import Console
 from rich.table import Table
 from rich import box
@@ -90,13 +95,32 @@ def main():
     # Fetch messages
     with TelegramClient("message-counter-session", api_id, api_hash) as client:
         for channel in channels:
-            count = 0
-            for message in client.iter_messages(channel):
-                if message.date < cutoff_date:
-                    break
-                count += 1
-            avg_per_day = count / total_days
-            table.add_row(channel, str(count), f"{avg_per_day:.1f}")
+            try:
+                count = 0
+                for message in client.iter_messages(channel):
+                    if message.date < cutoff_date:
+                        break
+                    count += 1
+                avg_per_day = count / total_days
+                table.add_row(channel, str(count), f"{avg_per_day:.1f}")
+
+            except UsernameInvalidError:
+                console.print(
+                    f"[bold red]✖ Skipping {channel}:[/bold red] username not found or invalid."
+                )
+            except ChannelPrivateError:
+                console.print(
+                    f"[bold yellow]🔒 Skipping {channel}:[/bold yellow] channel is private or requires a join."
+                )
+            except FloodWaitError as e:
+                console.print(
+                    f"[bold red]⏳ Rate limit hit![/bold red] Need to wait {e.seconds} seconds. Exiting..."
+                )
+                break  # Optional: Exit immediately or sleep
+            except Exception as e:
+                console.print(
+                    f"[bold red]⚠ Error with {channel}:[/bold red] {str(e)}"
+                )
 
     console.print(table)
 
