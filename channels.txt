@@ -1,4 +1,5 @@
-@amitsegal
-@lieldaphna
-@MichaelShemesh
-@grinzaig
+@hacker_news_feed
+@techguide
+@computer_science_and_programming
+@SammyFans
+@durov
