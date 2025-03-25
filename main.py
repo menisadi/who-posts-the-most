@@ -1,12 +1,12 @@
-from telethon.sync import TelegramClient
+import os
+import argparse
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
+from telethon.sync import TelegramClient
 from rich.console import Console
 from rich.table import Table
 from rich import box
-import os
 
-# Load environment variables from .env file
 _ = load_dotenv()
 
 api_id_raw = os.getenv("TELEGRAM_API_ID")
@@ -15,35 +15,91 @@ if api_id_raw is None:
 api_id = int(api_id_raw)
 api_hash = os.getenv("TELEGRAM_API_HASH")
 
-client = TelegramClient("message-counter-session", api_id, api_hash)
-
-# Replace with the public channels you want to monitor
-channels = ["@amitsegal", "@lieldaphna", "@MichaelShemesh", "@grinzaig"]
-days_back = 7
-cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_back)
-
 console = Console()
 
-# Print a colorful title
-console.rule("[bold cyan]📊 Telegram Channel Message Race")
-console.print(
-    f"Analyzing message activity over the past [bold magenta]{days_back}[/bold magenta] days...\n"
-)
 
-# Create a nice table
-table = Table(title="Average Messages Per Day", box=box.SIMPLE_HEAVY)
-table.add_column("Channel", style="bold green")
-table.add_column("Messages", justify="right", style="yellow")
-table.add_column("Avg/Day", justify="right", style="cyan")
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Track Telegram channel message activity."
+    )
+    parser.add_argument(
+        "--channel_file",
+        default="channels.txt",
+        help="Path to the file containing channel list (default: channels.txt)",
+    )
+    parser.add_argument(
+        "--days", type=int, default=0, help="How many days back to look"
+    )
+    parser.add_argument(
+        "--weeks", type=int, default=1, help="How many weeks back to look"
+    )
+    parser.add_argument(
+        "--months",
+        type=int,
+        default=0,
+        help="How many months (30 days each) back to look",
+    )
+    return parser.parse_args()
 
-with client:
-    for channel in channels:
-        count = 0
-        for message in client.iter_messages(channel):
-            if message.date < cutoff_date:
-                break
-            count += 1
-        avg_per_day = count / days_back
-        table.add_row(channel, str(count), f"{avg_per_day:.1f}")
 
-console.print(table)
+def load_channels_from_file(path: str) -> list[str]:
+    with open(path, "r") as f:
+        return [
+            line.strip()
+            for line in f
+            if line.strip() and not line.startswith("#")
+        ]
+
+
+def main():
+    args = parse_args()
+    channels = load_channels_from_file(args.channel_file)
+
+    # Compute total time range
+    total_days = args.days + args.weeks * 7 + args.months * 30
+    if total_days <= 0:
+        console.print(
+            "[bold red]Error:[/bold red] You must specify a time period with --days, --weeks, or --months."
+        )
+        return
+
+    cutoff_date = datetime.now(timezone.utc) - timedelta(days=total_days)
+
+    # Build a friendly string for display
+    period_parts = []
+    if args.months:
+        period_parts.append(f"{args.months} month(s)")
+    if args.weeks:
+        period_parts.append(f"{args.weeks} week(s)")
+    if args.days:
+        period_parts.append(f"{args.days} day(s)")
+    display_period = ", ".join(period_parts)
+
+    # Header
+    console.rule("[bold cyan]📊 Telegram Channel Message Race")
+    console.print(
+        f"Analyzing message activity over the past [bold magenta]{display_period}[/bold magenta]...\n"
+    )
+
+    # Table
+    table = Table(title="Average Messages Per Day", box=box.SIMPLE_HEAVY)
+    table.add_column("Channel", style="bold green")
+    table.add_column("Messages", justify="right", style="yellow")
+    table.add_column("Avg/Day", justify="right", style="cyan")
+
+    # Fetch messages
+    with TelegramClient("message-counter-session", api_id, api_hash) as client:
+        for channel in channels:
+            count = 0
+            for message in client.iter_messages(channel):
+                if message.date < cutoff_date:
+                    break
+                count += 1
+            avg_per_day = count / total_days
+            table.add_row(channel, str(count), f"{avg_per_day:.1f}")
+
+    console.print(table)
+
+
+if __name__ == "__main__":
+    main()
