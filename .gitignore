@@ -1,2 +1,4 @@
 .env
 pyrightconfig.json
+message-counter-session.session
+.python-version
