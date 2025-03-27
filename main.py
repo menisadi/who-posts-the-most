@@ -1,4 +1,5 @@
 import os
+import time
 import argparse
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
@@ -43,6 +44,11 @@ def parse_args():
         type=int,
         default=0,
         help="How many months (30 days each) back to look",
+    )
+    parser.add_argument(
+        "--wait",
+        action="store_true",
+        help="Modify the behaviour to wait if rate limit reached, instead of exiting",
     )
     return parser.parse_args()
 
@@ -113,10 +119,23 @@ def main():
                     f"[bold yellow]🔒 Skipping {channel}:[/bold yellow] channel is private or requires a join."
                 )
             except FloodWaitError as e:
-                console.print(
-                    f"[bold red]⏳ Rate limit hit![/bold red] Need to wait {e.seconds} seconds. Exiting..."
-                )
-                break  # Optional: Exit immediately or sleep
+                if args.wait:
+                    # TODO: Skipping after sleeping is the simple solution
+                    # but the correct solution would be to wrap the 'for' with a sleep loop
+                    console.print(
+                        f"[bold red]⏳ Rate limit hit![/bold red] Need to wait {e.seconds} seconds. Sleeping..."
+                    )
+                    time.sleep(e.seconds + 1)
+                    console.print(
+                        f"[bold yellow]Continuing with next channel after waiting.[/bold yellow]\n"
+                    )
+                else:
+                    console.print(
+                        f"[bold red]⏳ Rate limit hit![/bold red] Need to wait {e.seconds} seconds. Exiting..."
+                    )
+                    # INFO: I assume that the rate limit is a global limit
+                    # So there is no point of going on.
+                    return
             except Exception as e:
                 console.print(
                     f"[bold red]⚠ Error with {channel}:[/bold red] {str(e)}"
